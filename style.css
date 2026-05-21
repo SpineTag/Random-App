@@ -113,12 +113,22 @@ main {
 
 .action-panel {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .action-panel > .panel:first-child {
   display: grid;
-  gap: 12px;
+  gap: 14px;
+}
+
+.action-hint {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+  color: #d6e8ff;
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 button {
@@ -129,12 +139,11 @@ button {
   gap: 10px;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, #4c93df, #63c3ff);
   color: white;
   font-size: 1rem;
   padding: 14px 16px;
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.25s ease;
+  transition: transform 0.15s ease, background 0.25s ease, box-shadow 0.25s ease;
 }
 
 button:hover {
@@ -142,24 +151,91 @@ button:hover {
 }
 
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
-button:nth-child(2) {
+button.primary {
+  background: linear-gradient(135deg, #4c93df, #63c3ff);
+}
+
+button.success {
   background: linear-gradient(135deg, #3b974c, #61cd93);
 }
 
-button:nth-child(3) {
+button.warning {
   background: linear-gradient(135deg, #d39b40, #f3c661);
 }
 
-button:nth-child(4) {
+button.info {
   background: linear-gradient(135deg, #5d7ce8, #7db0ff);
 }
 
-button:nth-child(5) {
+button.danger {
   background: linear-gradient(135deg, #d14a4a, #ff747d);
+}
+
+button.ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+button.selected {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.15);
+}
+
+.region {
+  position: relative;
+  min-height: 140px;
+  padding: 16px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(56, 78, 113, 0.92), rgba(24, 38, 54, 0.95));
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.region.target {
+  outline: 3px dashed rgba(108, 190, 245, 0.55);
+  outline-offset: -2px;
+}
+
+.region:hover {
+  transform: translateY(-3px);
+  border-color: rgba(108, 190, 245, 0.36);
+}
+
+.region h3,
+.region p {
+  margin: 8px 0;
+}
+
+.region h3 {
+  font-size: 1rem;
+}
+
+.region .owner {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.region .troops,
+.region .income {
+  font-size: 0.85rem;
+  color: #c7d0db;
+}
+
+.board {
+  min-height: 520px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  padding: 16px;
 }
 
 .log {

@@ -33,6 +33,7 @@
             <p>Owner: <span id="selectedRegionOwner">-</span></p>
             <p>Production: <span id="selectedRegionIncome">-</span></p>
             <p>Troops: <span id="selectedRegionTroops">-</span></p>
+            <p>Neighbors: <span id="selectedRegionNeighbors">-</span></p>
           </div>
         </div>
 
@@ -42,11 +43,13 @@
       <aside class="action-panel card">
         <div class="panel">
           <h2>Actions</h2>
-          <button id="endTurnButton">End Turn</button>
-          <button id="recruitButton">Recruit Army (20 gold)</button>
-          <button id="fortifyButton">Fortify Region (+5 troops)</button>
-          <button id="moveButton">Move Troops</button>
-          <button id="attackButton">Attack</button>
+          <div id="actionHint" class="action-hint">Select one of your regions to get started.</div>
+          <button id="endTurnButton" class="primary">End Turn</button>
+          <button id="recruitButton" class="success">Recruit Army (20 gold)</button>
+          <button id="fortifyButton" class="warning">Fortify Region (+5 troops)</button>
+          <button id="moveButton" class="info">Prepare Move</button>
+          <button id="attackButton" class="danger">Prepare Attack</button>
+          <button id="resetButton" class="ghost">Reset Game</button>
         </div>
 
         <div class="panel">
