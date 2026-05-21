@@ -1,1 +1,0 @@
-{"root":["./src/main.tsx","./src/sim/data.ts","./src/sim/engine.ts","./src/sim/rand.ts","./src/sim/storage.ts","./src/sim/types.ts","./src/ui/app.tsx"],"version":"5.9.3"}
