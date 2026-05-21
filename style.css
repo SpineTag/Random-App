@@ -116,6 +116,11 @@ main {
   gap: 16px;
 }
 
+.action-panel > .panel:first-child {
+  display: grid;
+  gap: 12px;
+}
+
 button {
   width: 100%;
   display: inline-flex;
