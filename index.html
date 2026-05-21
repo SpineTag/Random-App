@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grand Strategy</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <h1>Grand Strategy</h1>
+      <p>Lead your realm to dominance through diplomacy, economy, and warfare.</p>
+    </header>
+
+    <main>
+      <section class="game-panel">
+        <div class="status-board">
+          <div class="panel card">
+            <h2>Turn</h2>
+            <p id="turnNumber">1</p>
+          </div>
+          <div class="panel card">
+            <h2>Your Realm</h2>
+            <p id="playerName">House Aurelion</p>
+            <p>Gold: <span id="playerGold">0</span></p>
+            <p>Production: <span id="playerIncome">0</span>/turn</p>
+            <p>Armies: <span id="playerArmies">0</span></p>
+          </div>
+          <div class="panel card">
+            <h2>Selected Region</h2>
+            <p id="selectedRegionName">None</p>
+            <p>Owner: <span id="selectedRegionOwner">-</span></p>
+            <p>Production: <span id="selectedRegionIncome">-</span></p>
+            <p>Troops: <span id="selectedRegionTroops">-</span></p>
+          </div>
+        </div>
+
+        <div class="board card" id="mapBoard"></div>
+      </section>
+
+      <aside class="action-panel card">
+        <div class="panel">
+          <h2>Actions</h2>
+          <button id="endTurnButton">End Turn</button>
+          <button id="recruitButton">Recruit Army (20 gold)</button>
+          <button id="fortifyButton">Fortify Region (+5 troops)</button>
+          <button id="moveButton">Move Troops</button>
+          <button id="attackButton">Attack</button>
+        </div>
+
+        <div class="panel">
+          <h2>Notifications</h2>
+          <div id="log" class="log"></div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
