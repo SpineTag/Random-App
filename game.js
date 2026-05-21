@@ -6,7 +6,7 @@ const factions = [
   { id: 'talon', name: 'Talon Empire', color: '#f76c8c', type: 'ai' }
 ];
 
-const regions = [
+const initialRegions = [
   { id: 'northmarch', name: 'Northmarch', owner: 'ryvan', income: 8, troops: 12, neighbors: ['harrond', 'ironcrest', 'stormhold'] },
   { id: 'harrond', name: 'Harrond Plains', owner: 'player', income: 5, troops: 6, neighbors: ['northmarch', 'ironcrest', 'mirevale'] },
   { id: 'ironcrest', name: 'Ironcrest Hills', owner: 'player', income: 6, troops: 9, neighbors: ['northmarch', 'harrond', 'stormhold', 'galecliff'] },
@@ -19,12 +19,15 @@ const regions = [
   { id: 'stonefen', name: 'Stonefen', owner: 'vesta', income: 5, troops: 10, neighbors: ['opalvale'] }
 ];
 
+let regions = initialRegions.map(region => ({ ...region, neighbors: [...region.neighbors] }));
 let turn = 1;
 let selectedRegionId = null;
+let selectedAction = null;
+
 const state = {
   gold: 50,
   income: 0,
-  armies: 22,
+  armies: 0,
 };
 
 const elements = {
@@ -37,6 +40,8 @@ const elements = {
   selectedRegionOwner: document.getElementById('selectedRegionOwner'),
   selectedRegionIncome: document.getElementById('selectedRegionIncome'),
   selectedRegionTroops: document.getElementById('selectedRegionTroops'),
+  selectedRegionNeighbors: document.getElementById('selectedRegionNeighbors'),
+  actionHint: document.getElementById('actionHint'),
   mapBoard: document.getElementById('mapBoard'),
   log: document.getElementById('log'),
   endTurnButton: document.getElementById('endTurnButton'),
@@ -44,6 +49,7 @@ const elements = {
   fortifyButton: document.getElementById('fortifyButton'),
   moveButton: document.getElementById('moveButton'),
   attackButton: document.getElementById('attackButton'),
+  resetButton: document.getElementById('resetButton'),
 };
 
 function log(text, type = 'info') {
@@ -78,12 +84,18 @@ function updateStats() {
     elements.selectedRegionOwner.textContent = getFaction(region.owner).name;
     elements.selectedRegionIncome.textContent = region.income;
     elements.selectedRegionTroops.textContent = region.troops;
+    elements.selectedRegionNeighbors.textContent = region.neighbors
+      .map(id => getRegion(id).name)
+      .join(', ');
   } else {
     elements.selectedRegionName.textContent = 'None';
     elements.selectedRegionOwner.textContent = '-';
     elements.selectedRegionIncome.textContent = '-';
     elements.selectedRegionTroops.textContent = '-';
+    elements.selectedRegionNeighbors.textContent = '-';
   }
+
+  refreshActionButtons();
 }
 
 function renderMap() {
@@ -91,8 +103,13 @@ function renderMap() {
   regions.forEach(region => {
     const faction = getFaction(region.owner);
     const cell = document.createElement('div');
+    const isSelected = region.id === selectedRegionId;
     cell.className = 'region';
-    if (region.id === selectedRegionId) cell.classList.add('selected');
+    if (isSelected) cell.classList.add('selected');
+    if (selectedAction && selectedRegionId && region.id !== selectedRegionId) {
+      if (selectedAction === 'move' && canMoveTo(selectedRegionId, region.id)) cell.classList.add('target');
+      if (selectedAction === 'attack' && canAttackFrom(selectedRegionId, region.id)) cell.classList.add('target');
+    }
     cell.style.borderColor = faction.color;
     cell.innerHTML = `
       <h3>${region.name}</h3>
@@ -105,17 +122,135 @@ function renderMap() {
   });
 }
 
+function updateActionHint(message) {
+  elements.actionHint.textContent = message;
+}
+
+function resetActionMode(message = 'Select one of your regions to continue.') {
+  selectedAction = null;
+  updateActionHint(message);
+  renderMap();
+}
+
 function selectRegion(id) {
+  const region = getRegion(id);
+
+  if (selectedAction && selectedRegionId && id !== selectedRegionId) {
+    if (selectedAction === 'move') {
+      if (attemptMove(selectedRegionId, id)) return;
+    }
+    if (selectedAction === 'attack') {
+      if (attemptAttack(selectedRegionId, id)) return;
+    }
+  }
+
   selectedRegionId = id;
+  selectedAction = null;
   renderMap();
   updateStats();
-  log(`Selected ${getRegion(id).name}.`);
+  updateActionHint(region.owner === 'player'
+    ? `Selected ${region.name}. Choose an action or prepare a move/attack.`
+    : `Selected ${region.name}. Choose a friendly region first if you want to attack it.`);
+  log(`Selected ${region.name}.`);
+}
+
+function setActionMode(action) {
+  if (!selectedRegionId) {
+    log('Select a source region first.', 'warning');
+    return;
+  }
+  const region = getRegion(selectedRegionId);
+  if (region.owner !== 'player') {
+    log('You must select one of your regions first.', 'warning');
+    return;
+  }
+  if (action === 'move' && !region.neighbors.some(id => getRegion(id).owner === 'player')) {
+    log('No adjacent friendly region is available for movement.', 'warning');
+    return;
+  }
+  if (action === 'attack' && !region.neighbors.some(id => getRegion(id).owner !== 'player')) {
+    log('No adjacent enemy region is available for attack.', 'warning');
+    return;
+  }
+  selectedAction = action;
+  const hint = action === 'move'
+    ? `Click an adjacent friendly region to move troops.`
+    : `Click a neighboring enemy region to attack.`;
+  updateActionHint(hint);
+  renderMap();
+}
+
+function refreshActionButtons() {
+  const region = selectedRegionId ? getRegion(selectedRegionId) : null;
+  const hasPlayerRegion = region && region.owner === 'player';
+  elements.recruitButton.disabled = !hasPlayerRegion || state.gold < 20;
+  elements.fortifyButton.disabled = !hasPlayerRegion;
+  elements.moveButton.disabled = !hasPlayerRegion;
+  elements.attackButton.disabled = !hasPlayerRegion;
+}
+
+function canMoveTo(sourceId, targetId) {
+  const source = getRegion(sourceId);
+  const target = getRegion(targetId);
+  return source.owner === 'player' && target.owner === 'player' && source.neighbors.includes(targetId) && source.troops > 3;
+}
+
+function canAttackFrom(sourceId, targetId) {
+  const source = getRegion(sourceId);
+  const target = getRegion(targetId);
+  return source.owner === 'player' && target.owner !== 'player' && source.neighbors.includes(targetId) && source.troops > 4;
+}
+
+function attemptMove(sourceId, targetId) {
+  if (!canMoveTo(sourceId, targetId)) {
+    log('Choose a valid adjacent friendly region for movement.', 'warning');
+    return false;
+  }
+  const source = getRegion(sourceId);
+  const target = getRegion(targetId);
+  const moved = Math.min(3, source.troops - 3);
+  source.troops -= moved;
+  target.troops += moved;
+  log(`Moved ${moved} troops from ${source.name} to ${target.name}.`, 'success');
+  resetActionMode('Move complete. Select another region or end turn.');
+  updateStats();
+  renderMap();
+  return true;
+}
+
+function attemptAttack(sourceId, targetId) {
+  if (!canAttackFrom(sourceId, targetId)) {
+    log('Choose a valid adjacent enemy region to attack.', 'warning');
+    return false;
+  }
+  const attacker = getRegion(sourceId);
+  const target = getRegion(targetId);
+  const attackPower = attacker.troops + Math.floor(Math.random() * 6);
+  const defensePower = target.troops + Math.floor(Math.random() * 6);
+
+  if (attackPower > defensePower) {
+    const loss = Math.max(1, Math.floor(target.troops * 0.4));
+    attacker.troops = Math.max(3, attacker.troops - loss);
+    target.owner = 'player';
+    target.troops = Math.max(4, attacker.troops - 2);
+    log(`Victory! ${target.name} was captured with ${target.troops} occupying troops.`, 'success');
+  } else {
+    const loss = Math.max(1, Math.floor(attacker.troops * 0.5));
+    attacker.troops -= loss;
+    log(`Attack failed at ${target.name}. Lost ${loss} troops.`, 'danger');
+  }
+
+  resetActionMode('Attack complete. Choose your next move.');
+  updateStats();
+  renderMap();
+  return true;
 }
 
 function endTurn() {
   state.gold += state.income;
   turn += 1;
   log(`Turn ${turn - 1} ended. You earned ${state.income} gold.`);
+  resetActionMode('Your turn ended. AI empires are moving.');
   aiTurn();
   updateStats();
   renderMap();
@@ -138,7 +273,7 @@ function recruitArmy() {
   }
   state.gold -= 20;
   region.troops += 5;
-  log(`Recruited 5 troops in ${region.name}.`,'success');
+  log(`Recruited 5 troops in ${region.name}.`, 'success');
   updateStats();
   renderMap();
 }
@@ -160,66 +295,11 @@ function fortifyRegion() {
 }
 
 function moveTroops() {
-  if (!selectedRegionId) {
-    log('Select a source region first.', 'warning');
-    return;
-  }
-  const source = getRegion(selectedRegionId);
-  if (source.owner !== 'player') {
-    log('Select one of your regions to move troops.', 'warning');
-    return;
-  }
-  const target = regions.find(r => source.neighbors.includes(r.id) && r.owner === 'player' && r.id !== source.id);
-  if (!target) {
-    log('No friendly adjacent region available for movement.', 'warning');
-    return;
-  }
-  if (source.troops <= 3) {
-    log('Keep at least 3 troops behind.', 'warning');
-    return;
-  }
-  source.troops -= 3;
-  target.troops += 3;
-  log(`Moved 3 troops from ${source.name} to ${target.name}.`, 'success');
-  updateStats();
-  renderMap();
+  setActionMode('move');
 }
 
 function attack() {
-  if (!selectedRegionId) {
-    log('Select an attacking region first.', 'warning');
-    return;
-  }
-  const attacker = getRegion(selectedRegionId);
-  if (attacker.owner !== 'player') {
-    log('Select one of your regions to attack from.', 'warning');
-    return;
-  }
-  const target = regions.find(r => attacker.neighbors.includes(r.id) && r.owner !== 'player');
-  if (!target) {
-    log('No enemy adjacent region to attack.', 'warning');
-    return;
-  }
-  if (attacker.troops <= 4) {
-    log('You need at least 5 troops to launch an attack.', 'warning');
-    return;
-  }
-  const attackPower = attacker.troops + Math.floor(Math.random() * 6);
-  const defensePower = target.troops + Math.floor(Math.random() * 6);
-
-  if (attackPower > defensePower) {
-    const loss = Math.max(1, Math.floor(target.troops * 0.4));
-    attacker.troops = Math.max(3, attacker.troops - loss);
-    target.owner = 'player';
-    target.troops = Math.max(4, attacker.troops - 2);
-    log(`Victory! ${target.name} was captured with ${target.troops} occupying troops.`, 'success');
-  } else {
-    const loss = Math.max(1, Math.floor(attacker.troops * 0.5));
-    attacker.troops -= loss;
-    log(`Attack failed at ${target.name}. Lost ${loss} troops.`, 'danger');
-  }
-  updateStats();
-  renderMap();
+  setActionMode('attack');
 }
 
 function aiTurn() {
@@ -227,40 +307,50 @@ function aiTurn() {
   const aiFactions = factions.filter(f => f.type === 'ai');
   aiFactions.forEach(faction => {
     const ownedRegions = regions.filter(r => r.owner === faction.id);
-    const nearbyEnemyTargets = ownedRegions.flatMap(region => region.neighbors.map(id => getRegion(id))).filter(r => r.owner !== faction.id);
+    if (!ownedRegions.length) return;
 
-    if (ownedRegions.length === 0) return;
-    const strongest = ownedRegions.reduce((best, region) => region.troops > best.troops ? region : best, ownedRegions[0]);
-    if (strongest.troops >= 12 && nearbyEnemyTargets.length > 0) {
-      const target = nearbyEnemyTargets[Math.floor(Math.random() * nearbyEnemyTargets.length)];
-      const attackPower = strongest.troops + Math.floor(Math.random() * 5);
-      const defensePower = target.troops + Math.floor(Math.random() * 5);
-      if (attackPower > defensePower) {
-        target.owner = faction.id;
-        target.troops = Math.max(4, strongest.troops - 4);
-        strongest.troops = Math.max(3, strongest.troops - 3);
-        log(`${faction.name} captured ${target.name}.`, 'danger');
-      } else {
-        strongest.troops = Math.max(3, strongest.troops - 4);
+    const borderRegions = ownedRegions.filter(region => region.neighbors.some(id => getRegion(id).owner !== faction.id));
+    if (borderRegions.length) {
+      const attacker = borderRegions.reduce((strongest, region) => region.troops > strongest.troops ? region : strongest, borderRegions[0]);
+      const targetCandidates = attacker.neighbors
+        .map(id => getRegion(id))
+        .filter(region => region.owner !== faction.id);
+
+      if (targetCandidates.length) {
+        const target = targetCandidates.sort((a, b) => (a.troops + a.income) - (b.troops + b.income))[0];
+        const attackPower = attacker.troops + Math.floor(Math.random() * 5);
+        const defensePower = target.troops + Math.floor(Math.random() * 5);
+
+        if (attackPower > defensePower + 1) {
+          target.owner = faction.id;
+          target.troops = Math.max(4, attacker.troops - 3);
+          attacker.troops = Math.max(3, attacker.troops - 4);
+          log(`${faction.name} captured ${target.name}.`, 'danger');
+          return;
+        }
+
+        attacker.troops = Math.max(3, attacker.troops - 3);
         log(`${faction.name} failed an assault on ${target.name}.`, 'warning');
+        return;
       }
-    } else {
-      const reinf = ownedRegions[Math.floor(Math.random() * ownedRegions.length)];
-      reinf.troops += 2;
-      log(`${faction.name} reinforced ${reinf.name}.`, 'warning');
     }
+
+    const reinforcement = ownedRegions[Math.floor(Math.random() * ownedRegions.length)];
+    reinforcement.troops += 2;
+    log(`${faction.name} reinforced ${reinforcement.name}.`, 'warning');
   });
 
   regions.forEach(region => {
-    if (region.owner === 'player') return;
-    region.troops = Math.min(region.troops + 1, 18);
+    if (region.owner !== 'player') {
+      region.troops = Math.min(region.troops + 1, 20);
+    }
   });
 }
 
 function checkVictory() {
   const playerControl = regions.filter(r => r.owner === 'player').length;
   const enemyControl = regions.filter(r => r.owner !== 'player').length;
-  if (playerControl >= 8) {
+  if (playerControl >= 8 || enemyControl === 0) {
     log('You have become the supreme ruler of the realm!', 'success');
     disableButtons();
   }
@@ -268,6 +358,21 @@ function checkVictory() {
     log('Your enemies have overwhelmed the realm!', 'danger');
     disableButtons();
   }
+}
+
+function resetGame() {
+  regions = initialRegions.map(region => ({ ...region, neighbors: [...region.neighbors] }));
+  turn = 1;
+  selectedRegionId = null;
+  selectedAction = null;
+  state.gold = 50;
+  state.income = 0;
+  state.armies = 0;
+  updateStats();
+  renderMap();
+  updateActionHint('The realm resets. Select a region to begin again.');
+  elements.log.innerHTML = '';
+  log('The game has been reset. A new campaign begins.');
 }
 
 function disableButtons() {
@@ -284,12 +389,14 @@ function bindEvents() {
   elements.fortifyButton.addEventListener('click', fortifyRegion);
   elements.moveButton.addEventListener('click', moveTroops);
   elements.attackButton.addEventListener('click', attack);
+  elements.resetButton.addEventListener('click', resetGame);
 }
 
 function initialize() {
   bindEvents();
-  renderMap();
   updateStats();
+  renderMap();
+  updateActionHint('Welcome, commander. Select a region to begin your campaign.');
   log('Welcome, commander. Seize opportunity and conquer the map.');
 }
 
